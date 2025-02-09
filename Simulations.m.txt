@@ -1,0 +1,173 @@
+%Simulations 
+
+load('iLJ1162E2RevSys.mat') 
+
+%Establecer condiciones anaerobias bloqueando la reacción de intercambio de 
+
+%oxígeno: EX_cpd00007_e0 
+
+aniLJ1162=changeRxnBounds(model,'EX_cpd00007_e0',0,'b'); 
+
+%Cambiar la función objetivo al crecimiento: 
+
+WTmodel=changeObjective(aniLJ1162,'bio1'); 
+
+%Simular la optimización de crecimiento en condiciones 
+
+%anaerobias con las vías de deshidrogenasas de NADH: 
+
+WTsim=optimizeCbModel(WTmodel); 
+
+%Eliminar los genes que codifican para NDHs del modelo anaerobio: 
+
+NDHgenes={'SO_1009','SO_1010','SO_1011','SO_1012','SO_1013','SO_1014','SO_1015','SO_1016','SO_1017','SO_1018','SO_1020','SO_1021','SO_1103','SO_1104','SO_1105','SO_1106','SO_1107','SO_1108','SO_0902','SO_0903','SO_0904','SO_0905','SO_0906','SO_0907','SO_3517'}; 
+
+[KOmodel,hasEffect]=deleteModelGenes(WTmodel,NDHgenes); 
+
+%Simular la optimización de crecimiento en condiciones 
+
+%anaerobias con los genes de NDHs elminados 
+
+KOsim=optimizeCbModel(KOmodel); 
+
+%Comparar los flujos de las reacciones y verificar qué genes se 
+
+%sobreexpresan 
+
+WTfluxes=WTsim.v; 
+
+KOfluxes=KOsim.v; 
+
+c=0; 
+
+a=0; 
+
+b=0; 
+
+for i=1:2098 
+
+    WTrxn=WTfluxes(i); 
+
+    KOrxn=KOfluxes(i); 
+
+    if KOrxn>WTrxn 
+
+        c=c+1; 
+
+        incrxns(c)=model.rxns(i); 
+
+    end 
+
+    if KOrxn<WTrxn 
+
+        a=a+1; 
+
+        decrxns(a)=model.rxns(i); 
+
+    end 
+
+    if KOrxn==WTrxn 
+
+        b=b+1; 
+
+        indrxns(b)=model.rxns(i); 
+
+    end 
+
+end 
+
+%Verificar qué genes se sobreexpresan 
+
+overgenes=findGenesFromRxns(model,incrxns); 
+
+%Verificar que proC y putA se sobreexpresen 
+
+for g=1:size(overgenes) 
+
+    if contains(overgenes{g},'SO_3354') 
+
+        disp('El identificador de proC (SO_3354) se encuentra en la lista de genes sobreexpresados, por lo cual se confirma su sobreexpresión al inhibir las NADH deshidrogenasas') 
+
+    end 
+
+    if contains(overgenes{g},'SO_3774') 
+
+        disp('El identificador de putA (SO_3774) se encuentra en la lista de genes sobreexpresados, por lo cual se confirma su sobreexpresión al inhibir las NADH deshidrogenasas') 
+
+    end 
+
+end 
+
+%Verificar el impacto en el crecimiento de S. oneidensis la sobreexpresión 
+
+%de los genes proC y putA aún con la expresión de las NADH deshidrogenasas. 
+
+%Hallar las reacciones asociadas con cada gen: 
+
+proCrxns=findRxnsFromGenes(model,'G_SO_3354'); 
+
+putArxns=findRxnsFromGenes(model,'G_SO_3774'); 
+
+%Cambiar los límites de las reacciones: 
+
+proClist={}; 
+
+for y=1:size(proCrxns.gene_G_SO_3354) 
+
+    cl=findRxnIDs(model,proCrxns.gene_G_SO_3354{y}); 
+
+    proClist{y}=model.rxns{cl}; 
+
+end 
+
+putAlist={}; 
+
+for d=1:size(putArxns.gene_G_SO_3774) 
+
+    al=findRxnIDs(model,putArxns.gene_G_SO_3774{d}); 
+
+    putAlist{d}=model.rxns{al}; 
+
+end 
+
+optmodel=changeRxnBounds(WTmodel,proClist,-1000,'l'); 
+
+optmodel=changeRxnBounds(optmodel,proClist,1000,'u'); 
+
+optmodel=changeRxnBounds(optmodel,putAlist,-1000,'l'); 
+
+optmodel=changeRxnBounds(optmodel,putAlist,1000,'u'); 
+
+%Realizar análisis de balance de flujos 
+
+optsim=optimizeCbModel(optmodel,'max'); 
+
+%Comparar crecimiento máximo en los tres modelos 
+
+t=optsim.f/WTsim.f; 
+
+fprintf('La velocidad de crecimiento máxima para la cepa silvestre es %f h^-1.',WTsim.f) 
+
+fprintf('La velocidad de crecimiento máxima para la cepa con los genes para NDHs inactivados es %f h^-1.',KOsim.f) 
+
+fprintf('La velocidad de crecimiento máxima para la cepa con proC y putA sobre expresados y los genes para NDHs activos es %f h^-1.',optsim.f) 
+
+fprintf('La sobre expresión de los genes ProC y PutA incrementan el crecimiento máximo en %f veces, en comparación con la cepa silvestre.',t) 
+
+% 
+
+%Inhibición de ProC y PutA 
+
+altgenes={'SO_3354','SO_3774'}; 
+
+[KOmodel2,hasEffect]=deleteModelGenes(WTmodel,altgenes); 
+
+KOsim2=optimizeCbModel(KOmodel2); 
+
+t2=KOsim2.f/WTsim.f; 
+
+fprintf('La velocidad de crecimiento máxima para la cepa con los genes ProC y PutA inactivados es %f h^-1.',KOsim2.f) 
+
+fprintf('La inactivación de los genes ProC y PutA decrementan el crecimiento máximo en %f veces, en comparación con la cepa silvestre.',t2) 
+
+fprintf('Tanto SO_3554 como SO_3774 son genes esenciales para Shewanella oneidensis') 

@@ -1,0 +1,59 @@
+%code to obtain BiGG subsystems 
+
+load("iLJ1162E2RevSys.mat") 
+
+load("subsystemsso.mat") 
+
+urlfh='http://bigg.ucsd.edu/universal/reactions/'; %Constant part of the url to make the http request to BiGG's API 
+
+for b=1:size(ss) 
+
+    if ~isempty(model.rxnKEGGID{b}) %If there is a KEGG ID for the reaction 
+
+        continue %Then skip one iteration 
+
+    else %If there isn't a KEGG ID for the reaction 
+
+        if isempty(model.rxnBiGGID{b}) %If there is no KEGG nor BiGG ID for the reaction, skip this iteration 
+
+            continue 
+
+        else 
+
+            if contains(model.rxnBiGGID{b},';') %In case there are multiple IDs, only the first one is considered 
+
+                pos=strfind(model.rxnBiGGID{b},';'); 
+
+                bid=model.rxnBiGGID{b}(1:pos-1); 
+
+            else 
+
+                bid=model.rxnBiGGID{b}; %Store the ID in the bid (BiGG ID) variable 
+
+            end 
+
+                rurl=strcat(urlfh,bid); %Add the BiGG ID to the first part of the link to create the request url (rurl) 
+
+            try %If there is an invalid ID, there will be an error in the script>> 
+
+                rinfo=webread(rurl); %Make the request to the API (html) 
+
+            catch %>>If there is an error... 
+
+                continue %...then skip this iteration 
+
+            end 
+
+            pattern='<h4>Descriptive name:</h4>\s*<p>(.*?)</p>'; %Finds the heading corresponding to the reaction name 
+
+            rname=regexp(rinfo, pattern, 'tokens'); %Extracts the reacton name from the html response 
+
+        end 
+
+    end 
+
+    ss{b}=rname{1}; 
+
+end 
+
+save('subystsemssoplus.mat','ss')

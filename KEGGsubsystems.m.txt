@@ -1,0 +1,77 @@
+%Code to obtain KEGG subsystems 
+
+load('iLJ1162E2RevSys.mat') 
+
+rxns=model.rxnKEGGID; %Reactions  
+
+ss=cell(size(rxns)); %Subsystems cell arrangement 
+
+burl='http://rest.kegg.jp/link/pathway/'; %Constant url part 
+
+for l=1:size(rxns) 
+
+    if isempty(rxns{l}) 
+
+        continue 
+
+    else 
+
+        if numel(rxns{l})>7 
+
+            trxn=rxns{l}(1:6); %Target reaction 
+
+        else 
+
+            trxn=rxns{l}; 
+
+        end 
+
+    end 
+
+    api=strcat(burl,trxn); %url for KEGG API 
+
+    paths=webread(api); %Direct info from API 
+
+    line=strsplit(paths); %Splits the info horizontally into cells 
+
+    i=size(line); %How many cells the info contains 
+
+    fi=i(2); %Because i is a cell arrangement, it is the second row that indicates the size in rows 
+
+    purl='http://rest.kegg.jp/get/'; %Constant url part to obtain each pathway's info 
+
+    t=0; %Counts the pathways obtained 
+
+    for a=1:fi 
+
+        if contains(line(a),'map')==0 %If the cell doesn't contain the word "map", it will not create a valid url 
+
+            a=a+1; 
+
+        else 
+
+            t=t+1; 
+
+            pid=line{a}(6:end); %Extracts the pathway id (map######) 
+
+            apip=strcat(purl,pid); %Creates the link to obtain the path info 
+
+            pinfo=webread(apip); %Obtains the pathway information 
+
+            line2=strsplit(pinfo,'\n'); %Splits each line of the pathway information horizontally into cells 
+
+            pname=line2{2}(6:end); %Extracts the name of the pathwat from the second cell of the split information 
+
+            names{t}=pname; % Stores the pathway names in a cell arrangement 
+
+        end 
+
+    end 
+
+    ss{l}=names{1}; %Assigns only the first pathway to appear on the API to the target reaction 
+
+    pause(2); 
+
+end 
+
+save('subsystemsso.mat','ss') 
